@@ -11,6 +11,7 @@ import datetime
 # Image processing tools
 import skimage.io
 from skimage import (color, feature, filters, measure, morphology, segmentation, util)
+import skimage.exposure
 import skimage.feature
 import skimage.filters
 import skimage.filters.rank
@@ -59,7 +60,7 @@ def sig_thresh_finder(histogram, bins, desired_thresh = 1000):
         past_i = 0
         index = 0
         
-        for i in dn_dk:
+        for i in histogram:
             # Look for the threshold location
             if (past_i > desired_thresh*0.2 and i <= desired_thresh*0.2) and (bins[index] > peak_val):
 
@@ -71,9 +72,11 @@ def sig_thresh_finder(histogram, bins, desired_thresh = 1000):
             past_i = i
             index += 1
 
-        thresh_val = np.min(thresh)
+        if thresh != []:
+            thresh_val = np.min(thresh)
+            return(thresh_val)
 
-        return(thresh_val)
+        return(threshold_otsu(histogram))
 
 def bf_thresh_finder(histogram, bins, desired_thresh = 10000, standard = True):
     
@@ -142,7 +145,7 @@ def brightness_counter(im_labeled, im_pos):
     nonzero_inds = im_labeled.nonzero()
     
     # Fill in an array of the cell labels for later boolean logic
-    labels = [im_labeled[i,j] for i,j in zip(nonzero_inds[0], nonzero_inds[1])]
+    labels = im_labeled[nonzero_inds]
     
     # Instantiate dictionary
     cell_intensities = {}
@@ -272,7 +275,7 @@ def in_vitro_quantification(im_bf, im_sig, bf_gauss_sigma = 30, truncate = 0.35,
     
     cell_list, cell_intensity_list = brightness_counter(im_labeled, im_sig)
     
-    if cell_list != []:
+    if len(cell_list) > 0:
         
         median = np.median(list(cell_intensity_list.values()))
         nintyfifth = np.percentile(list(cell_intensity_list.values()), collected_percentiles[1])
@@ -354,3 +357,37 @@ def workflow(df_lut, directory, output_file, input_file = None):
 
         
     return(df)
+
+def demo(sig, bf, output_file):
+    df = pd.DataFrame(columns=['Date',
+                           'Count',
+                           'Cells Quantified',
+                           'Brightness List',
+                           'Bright Field Area',
+                           'Signal Area',
+                           'Total Brightness',
+                           'Median Cell Brightness',
+                            '90% Confidence Interval'])
+    im_sig = skimage.img_as_float(skimage.io.imread(sig)[:,:,0])
+    im_bf = skimage.img_as_float(skimage.io.imread(bf)[:,:])
+            
+            
+        
+    n_cells, cell_list, cell_intensity_list, bf_area, signal_area, total_brightness, median, nintyfifth, fifth  = in_vitro_quantification(im_bf, im_sig)
+
+    temp_df = pd.DataFrame.from_dict([{'Date' : datetime.datetime.now(),
+                        'Count' : int(n_cells),
+                        'Cells Quantified' : str(cell_list), 
+                        'Brightness List': str(cell_intensity_list), 
+                        'Bright Field Area': bf_area,
+                        'Signal Area': signal_area,
+                        'Total Brightness': total_brightness,
+                        'Median Cell Brightness': median, 
+                        '90% Confidence Interval': [fifth, nintyfifth]}])
+
+    # Write all the information into a tidy dataframe
+    df = pd.concat([df,temp_df],
+                   ignore_index=True)
+
+    # Save the dataframe
+    df.to_csv(output_file, index=False)

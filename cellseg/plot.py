@@ -6,7 +6,6 @@ import glob
 
 # Plotting tools
 import bokeh
-from bokeh.models.widgets import Panel, Tabs
 from bokeh.io import output_file, show
 from bokeh.plotting import figure
 from bokeh.models import BasicTicker, ColorBar, LinearColorMapper, ColumnDataSource, PrintfTickFormatter, HoverTool
