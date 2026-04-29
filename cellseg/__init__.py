@@ -1,5 +1,6 @@
 from .quant import *
 from .plot import *
+from .metadata import *
 
 __original_author__ = 'David Goertsen'
 __modified_by__ = 'Longwei Zhang'

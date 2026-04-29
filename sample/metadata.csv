@@ -1,0 +1,10 @@
+figure_name,figure_id,magnification,channel,seeding_density,virus,cargo,dose_vg/well,image_time_h,receptor,include,notes
+Image001.tif,1,4x,,50000.0,,,0.0,0,,1,
+Image002.tif,2,4x,,50000.0,,,0.0,0,,1,
+Image003.tif,3,4x,,50000.0,,,0.0,0,,1,
+Image004.tif,4,4x,,50000.0,,,0.0,0,,1,
+Image005.tif,5,4x,,50000.0,,,0.0,0,,1,
+Image006.tif,6,4x,,50000.0,,,0.0,0,,1,
+Image007.tif,7,4x,,50000.0,,,0.0,0,,1,
+Image008.tif,8,4x,,50000.0,,,0.0,0,,1,
+Image009.tif,9,4x,,50000.0,,,0.0,0,,1,
