@@ -358,7 +358,7 @@ def workflow(df_lut, directory, output_file, input_file = None):
         
     return(df)
 
-def demo(sig, bf, output_file):
+def single_analysis(sig, bf):
     df = pd.DataFrame(columns=['Date',
                            'Count',
                            'Cells Quantified',
@@ -383,11 +383,80 @@ def demo(sig, bf, output_file):
                         'Signal Area': signal_area,
                         'Total Brightness': total_brightness,
                         'Median Cell Brightness': median, 
-                        '90% Confidence Interval': [fifth, nintyfifth]}])
+                        '90% Confidence Interval': [fifth, nintyfifth],
+                        'Percent Positive': signal_area*100/bf_area,
+                        'Percent Positive Scaled': signal_area*100/bf_area*0.5,
+                        'Total Brightness per Signal Area': total_brightness/signal_area}])
 
     # Write all the information into a tidy dataframe
-    df = pd.concat([df,temp_df],
-                   ignore_index=True)
 
-    # Save the dataframe
-    df.to_csv(output_file, index=False)
+    df = pd.concat([df,temp_df],
+                       ignore_index=True)
+
+    return df
+
+
+
+def assay_analysis(df_metadata, image_directory, output_file):
+
+    df_metadata = df_metadata[df_metadata['include'] == 1].copy()
+    
+    # Initialize results dataframe
+    df_results = pd.DataFrame(columns=['Date',
+                                       'Count',
+                                       'Cells Quantified',
+                                       'Brightness List',
+                                       'Bright Field Area',
+                                       'Signal Area',
+                                       'Total Brightness',
+                                       'Median Cell Brightness',
+                                       '90% Confidence Interval',
+                                       'Percent Positive',
+                                       'Percent Positive Scaled',
+                                       'Total Brightness per Signal Area',
+                                       'experiment_id'])
+    
+    # Get unique experiment IDs
+    experiment_ids = df_metadata['experiment_id'].unique()
+    
+    # Process each experiment
+    for exp_id in tqdm.tqdm(experiment_ids, desc="Processing experiments"):
+        
+        # Get rows for this experiment
+        exp_data = df_metadata[df_metadata['experiment_id'] == exp_id]
+        
+        # Find signal (channel 'r') and brightfield (channel 'bf') images
+        sig_row = exp_data[exp_data['channel'] == 'r']
+        bf_row = exp_data[exp_data['channel'] == 'bf']
+        
+        # Skip if we don't have both signal and brightfield images
+        if len(sig_row) == 0 or len(bf_row) == 0:
+            continue
+        
+        # Get image paths
+        sig_path = os.path.join(image_directory, sig_row.iloc[0]['figure_name'])
+        bf_path = os.path.join(image_directory, bf_row.iloc[0]['figure_name'])
+        
+        # Check if files exist
+        if not os.path.exists(sig_path) or not os.path.exists(bf_path):
+            print(f"Warning: Images for experiment {exp_id} not found. Skipping.")
+            continue
+        
+        try:
+            # Perform single analysis
+            df_temp = single_analysis(sig_path, bf_path)
+            
+            # Add experiment_id
+            df_temp['experiment_id'] = exp_id
+            
+            # Concatenate to results
+            df_results = pd.concat([df_results, df_temp], ignore_index=True)
+            
+        except Exception as e:
+            print(f"Error processing experiment {exp_id}: {str(e)}")
+            continue
+    
+    # Save results to CSV
+    df_results.to_csv(output_file, index=False)
+    
+    return df_results

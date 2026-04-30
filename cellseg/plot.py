@@ -134,8 +134,8 @@ def single_image_viewer(path, round_, plate, well):
     return(bf_plot, sig_plot)
 
 
-def single_experiment_viewer(im_sig, im_bf):
-    im_sig = skimage.img_as_float(skimage.io.imread(im_sig)[:,:,0])
+def single_experiment_viewer(im_sig,im_bf,channel=0):
+    im_sig = skimage.img_as_float(skimage.io.imread(im_sig)[:,:,channel])
     im_bf = skimage.img_as_float(skimage.io.imread(im_bf))
     cellseg.quant.signal_segmentation(im_sig)
     cellseg.quant.brightfield_segmentation(im_bf, gauss_sigma = 30, truncate = 0.35,
