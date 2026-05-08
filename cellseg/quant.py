@@ -257,6 +257,7 @@ def signal_segmentation(im_sig, gauss_sigma = 100, sig_thresh = 1000, min_size =
 def in_vitro_quantification(im_bf, im_sig, bf_gauss_sigma = 30, truncate = 0.35, dark_thresh = 10000, light_thresh = 3000, disk_radius = 2, sig_gauss_sigma = 100, sig_thresh = 1000, min_size = 5, h_max = 0.01, collected_percentiles = [5,95]):
     brightfield_areas, total_area = brightfield_segmentation(im_bf, bf_gauss_sigma, truncate, dark_thresh, light_thresh, disk_radius)
     signal_areas, signal_total_area = signal_segmentation(im_sig, sig_gauss_sigma, sig_thresh, min_size)
+    print(f"Signal area: {signal_total_area}")
     
     original_sig = signal_areas*im_sig
     
@@ -274,6 +275,7 @@ def in_vitro_quantification(im_bf, im_sig, bf_gauss_sigma = 30, truncate = 0.35,
     im_labeled, n_labels = skimage.measure.label(labels, background=0, return_num=True)
     
     cell_list, cell_intensity_list = brightness_counter(im_labeled, im_sig)
+
     
     if len(cell_list) > 0:
         
@@ -358,7 +360,7 @@ def workflow(df_lut, directory, output_file, input_file = None):
         
     return(df)
 
-def single_analysis(sig, bf):
+def single_analysis(sig, bf,channel=0):
     df = pd.DataFrame(columns=['Date',
                            'Count',
                            'Cells Quantified',
@@ -368,7 +370,7 @@ def single_analysis(sig, bf):
                            'Total Brightness',
                            'Median Cell Brightness',
                             '90% Confidence Interval'])
-    im_sig = skimage.img_as_float(skimage.io.imread(sig)[:,:,0])
+    im_sig = skimage.img_as_float(skimage.io.imread(sig)[:,:,channel])
     im_bf = skimage.img_as_float(skimage.io.imread(bf)[:,:])
             
             
@@ -397,7 +399,7 @@ def single_analysis(sig, bf):
 
 
 
-def assay_analysis(df_metadata, image_directory, output_file):
+def assay_analysis(df_metadata, image_directory, output_file='results.csv',image='g',channel=1):
 
     df_metadata = df_metadata[df_metadata['include'] == 1].copy()
     
@@ -426,7 +428,7 @@ def assay_analysis(df_metadata, image_directory, output_file):
         exp_data = df_metadata[df_metadata['experiment_id'] == exp_id]
         
         # Find signal (channel 'r') and brightfield (channel 'bf') images
-        sig_row = exp_data[exp_data['channel'] == 'r']
+        sig_row = exp_data[exp_data['channel'] == image]
         bf_row = exp_data[exp_data['channel'] == 'bf']
         
         # Skip if we don't have both signal and brightfield images
@@ -444,7 +446,7 @@ def assay_analysis(df_metadata, image_directory, output_file):
         
         try:
             # Perform single analysis
-            df_temp = single_analysis(sig_path, bf_path)
+            df_temp = single_analysis(sig_path, bf_path, channel=channel)
             
             # Add experiment_id
             df_temp['experiment_id'] = exp_id
