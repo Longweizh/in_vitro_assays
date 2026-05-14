@@ -6,7 +6,7 @@ This pipeline can be used to perform analysis and quantification on images of in
 
 ## Motivation
 
-Quantification of in vitro transduction requires robust and reproducible pipelines. Due to significant variability in the DAPI signal in our images, a workflow to convert brightfield and signal images into masks was created.
+Quantification of in vitro transfection and transduction requires robust and reproducible pipelines. Due to significant variability in the DAPI signal in our images, a workflow to convert brightfield and signal images into masks was created.
 
 ## Workflow
 
@@ -35,6 +35,8 @@ figure_name,figure_id,channel,seeding_density,virus,cargo,dose_vg/well,image_tim
 
 - `Demo.ipynb`: A demonstration of how to load or generate metadata using the `cellseg` library.
 - `mask_check.ipynb`: A notebook to check the generated masks for the brightfield and signal images.
+- `metadata.csv`: The configuration of images.
+- `results.csv`: The analysis results.
 
 ## Acknowledgements
 
