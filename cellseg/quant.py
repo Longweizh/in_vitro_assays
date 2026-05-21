@@ -254,7 +254,7 @@ def signal_segmentation(im_sig, gauss_sigma = 100, sig_thresh = 1000, min_size =
     
     return(sig_thresh, total_area)
 
-def in_vitro_quantification(im_bf, im_sig, bf_gauss_sigma = 30, truncate = 0.35, dark_thresh = 10000, light_thresh = 3000, disk_radius = 2, sig_gauss_sigma = 100, sig_thresh = 1000, min_size = 5, h_max = 0.01, collected_percentiles = [5,95]):
+def bf_quant(im_bf, im_sig, bf_gauss_sigma = 30, truncate = 0.35, dark_thresh = 10000, light_thresh = 3000, disk_radius = 2, sig_gauss_sigma = 100, sig_thresh = 1000, min_size = 5, h_max = 0.01, collected_percentiles = [5,95]):
     brightfield_areas, total_area = brightfield_segmentation(im_bf, bf_gauss_sigma, truncate, dark_thresh, light_thresh, disk_radius)
     signal_areas, signal_total_area = signal_segmentation(im_sig, sig_gauss_sigma, sig_thresh, min_size)
     print(f"Signal area: {signal_total_area}")
@@ -287,79 +287,52 @@ def in_vitro_quantification(im_bf, im_sig, bf_gauss_sigma = 30, truncate = 0.35,
     
     else: 
         return(n_labels, cell_list, cell_intensity_list, total_area, signal_total_area, total_brightness, [], [], [])
+
+def overlap_quant(im1, im2, min_red_area = 5000):
+    """
+    im1: red/reference signal
+    im2: green/query signal
+
+    Calculate how much im2 signal is inside im1 signal.
+    """
+
+    signal_areas_1, signal_total_area_1 = signal_segmentation(im1)
+    signal_areas_2, signal_total_area_2 = signal_segmentation(im2)
+
+    # If red or green cannot be segmented / no positive area
+    if signal_total_area_1 < min_red_area or signal_total_area_2 == 0:
+        return {
+            'Red Area': signal_total_area_1,
+            'Green Area': signal_total_area_2,
+            'Overlap Area': 0,
+            'Green in Red Fraction': np.nan,
+            'Green in Red Percent': np.nan,
+            'Green Brightness in Red': np.nan,
+            'Green Mean Brightness in Red': np.nan,
+        }
+
+    overlap_mask = signal_areas_1 & signal_areas_2
+    overlap_area = np.sum(overlap_mask)
+
+    green_in_red_fraction = overlap_area / signal_total_area_1
+
+    green_brightness_in_red = np.sum(im2[overlap_mask])
+
+    green_mean_brightness_in_red = (
+        green_brightness_in_red / overlap_area
+        if overlap_area > 0 else np.nan
+    )
+
+    return {
+        'Red Area': signal_total_area_1,
+        'Green Area': signal_total_area_2,
+        'Overlap Area': overlap_area,
+        'Green in Red Fraction': green_in_red_fraction,
+        'Green in Red Percent': green_in_red_fraction * 100,
+        'Green Brightness in Red': green_brightness_in_red,
+        'Green Mean Brightness in Red': green_mean_brightness_in_red,
+    }
         
-def workflow(df_lut, directory, output_file, input_file = None):
-    if input_file == None:
-        # Initialize a dataframe
-        df = pd.DataFrame(columns=['Date',
-                           'Round',
-                           'Plate',
-                           'Well',
-                           'Count',
-                           'Cells Quantified',
-                           'Brightness List',
-                           'Bright Field Area',
-                           'Signal Area',
-                           'Total Brightness',
-                           'Median Cell Brightness',
-                            '90% Confidence Interval'])
-
-    else:
-        df = pd.read_csv(input_file, comment='#')
-    
-    # Cycle through the rows in the look up table
-    for index, row in tqdm.tqdm(df_lut.iterrows(), total=df_lut.shape[0]):
-
-        #Get the file location:
-        if row['Well'] < 10:
-            well_directory = directory + '/round_' + str(row['Round']) + '/plate_' + str(row['Plate']) + '/XY0' + str(row['Well']) +'/'
-        else:
-            well_directory = directory + '/round_' + str(row['Round']) + '/plate_' + str(row['Plate']) + '/XY' + str(row['Well']) +'/'
-
-        #Collect all the images from the final folder (there should be four images), although only two will be used.
-        file_list = glob.glob(well_directory + '*.tif')
-        
-        # If there are less than four images, the code jumps to the next folder
-        if len(file_list) == 4:
-
-            # Initialize the images
-            im_sig = skimage.img_as_float(skimage.io.imread(file_list[0])[:,:,1])
-            im_bf = skimage.img_as_float(skimage.io.imread(file_list[1])[:,:])
-            
-        elif len(file_list) == 5:
-            
-            im_sig = skimage.img_as_float(skimage.io.imread(file_list[0])[:,:,1])
-            im_bf = skimage.img_as_float(skimage.io.imread(file_list[3])[:,:])
-            
-        else:
-            continue
-        
-        # Collect data from the image by running it through the cellseg.quant package. For more information, see that code.  
-        n_cells, cell_list, cell_intensity_list, bf_area, signal_area, total_brightness, median, nintyfifth, fifth  = in_vitro_quantification(im_bf, im_sig)
-
-        temp_df = pd.DataFrame.from_dict([{'Date' : datetime.datetime.now(),
-                        'Round': row['Round'],
-                        'Plate': row['Plate'],
-                        'Well': row['Well'], 
-                        'Count' : int(n_cells),
-                        'Cells Quantified' : str(cell_list), 
-                        'Brightness List': str(cell_intensity_list), 
-                        'Bright Field Area': bf_area,
-                        'Signal Area': signal_area,
-                        'Total Brightness': total_brightness,
-                        'Median Cell Brightness': median, 
-                        '90% Confidence Interval': [fifth, nintyfifth]}])
-
-        # Write all the information into a tidy dataframe
-        df = pd.concat([df,temp_df],
-                       ignore_index=True)
-
-        # Save the dataframe
-        df.to_csv(output_file, index=False)
-
-        
-    return(df)
-
 def single_analysis(sig, bf,channel=0):
     df = pd.DataFrame(columns=['Date',
                            'Count',
@@ -373,9 +346,8 @@ def single_analysis(sig, bf,channel=0):
     im_sig = skimage.img_as_float(skimage.io.imread(sig)[:,:,channel])
     im_bf = skimage.img_as_float(skimage.io.imread(bf)[:,:])
             
-            
-        
-    n_cells, cell_list, cell_intensity_list, bf_area, signal_area, total_brightness, median, nintyfifth, fifth  = in_vitro_quantification(im_bf, im_sig)
+
+    n_cells, cell_list, cell_intensity_list, bf_area, signal_area, total_brightness, median, nintyfifth, fifth  = bf_quant(im_bf, im_sig)
 
     temp_df = pd.DataFrame.from_dict([{'Date' : datetime.datetime.now(),
                         'Count' : int(n_cells),
@@ -399,7 +371,13 @@ def single_analysis(sig, bf,channel=0):
 
 
 
-def assay_analysis(df_metadata, image_directory, output_file='results.csv',image='g',channel=1):
+def assay_analysis(
+        df_metadata, 
+        image_directory, 
+        output_file='results.csv',
+        g_channel=1,
+        r_channel=0,
+        ):
 
     df_metadata = df_metadata[df_metadata['include'] == 1].copy()
     
@@ -418,7 +396,6 @@ def assay_analysis(df_metadata, image_directory, output_file='results.csv',image
                                        'Total Brightness per Signal Area',
                                        'experiment_id'])
     
-    # Get unique experiment IDs
     experiment_ids = df_metadata['experiment_id'].unique()
     
     # Process each experiment
@@ -428,28 +405,56 @@ def assay_analysis(df_metadata, image_directory, output_file='results.csv',image
         exp_data = df_metadata[df_metadata['experiment_id'] == exp_id]
         
         # Find signal (channel 'r') and brightfield (channel 'bf') images
-        sig_row = exp_data[exp_data['channel'] == image]
         bf_row = exp_data[exp_data['channel'] == 'bf']
+        g_row = exp_data[exp_data['channel'] == 'g']
+        r_row = exp_data[exp_data['channel'] == 'r']
         
         # Skip if we don't have both signal and brightfield images
-        if len(sig_row) == 0 or len(bf_row) == 0:
+        if len(g_row) == 0 or len(bf_row) == 0:
+            print(f"Warning: Missing images for experiment {exp_id}. Skipping.")
             continue
         
         # Get image paths
-        sig_path = os.path.join(image_directory, sig_row.iloc[0]['figure_name'])
+        g_path = os.path.join(image_directory, g_row.iloc[0]['figure_name'])
         bf_path = os.path.join(image_directory, bf_row.iloc[0]['figure_name'])
+        r_exists = len(r_row) > 0
+        if r_exists:
+            r_path = os.path.join(image_directory, r_row.iloc[0]['figure_name'])
         
         # Check if files exist
-        if not os.path.exists(sig_path) or not os.path.exists(bf_path):
+        if not os.path.exists(g_path) or not os.path.exists(bf_path):
             print(f"Warning: Images for experiment {exp_id} not found. Skipping.")
             continue
         
         try:
             # Perform single analysis
-            df_temp = single_analysis(sig_path, bf_path, channel=channel)
+            df_temp = single_analysis(g_path, bf_path, channel=g_channel)
             
             # Add experiment_id
             df_temp['experiment_id'] = exp_id
+            
+            # Initialization
+            df_temp['Red Area'] = np.nan
+            df_temp['Green Area'] = np.nan
+            df_temp['Overlap Area'] = np.nan
+            df_temp['Green in Red Fraction'] = np.nan
+            df_temp['Green in Red Percent'] = np.nan
+            df_temp['Green Brightness in Red'] = np.nan
+            df_temp['Green Mean Brightness in Red'] = np.nan
+            
+            if os.path.exists(r_path):
+                try:
+                    # If red channel exists, perform overlap quantification
+                    im_g = skimage.img_as_float(skimage.io.imread(g_path)[:,:,g_channel])
+                    im_r = skimage.img_as_float(skimage.io.imread(r_path)[:,:,r_channel])
+                    overlap_result = overlap_quant(im_r, im_g)
+                    for key, value in overlap_result.items():
+                        df_temp[key] = value
+                except Exception as e:
+                    print(f"Warning: red overlap failed for experiment {exp_id}: {str(e)}")
+            
+            else:
+                print(f"Warning: r image file not found for experiment {exp_id}")
             
             # Concatenate to results
             df_results = pd.concat([df_results, df_temp], ignore_index=True)

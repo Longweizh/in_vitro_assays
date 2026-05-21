@@ -87,7 +87,7 @@ def bubble_plot(df, x_column, y_column, x_values = None, y_values = None, plot_t
 
     p.scatter(x = x_column, y = y_column, size = 'Percent Positive', fill_color = transform('Total Brightness per Signal Area', color_mapper), source = source)
 
-    p.add_tools(HoverTool(tooltips = [('Round', '@Round'), ('Plate', '@Plate'), ('Well', '@Well'), ('Virus', '@Virus'), ('Receptor', '@Receptor'), ('Dose', '@Dose')]))
+    p.add_tools(HoverTool(tooltips = [('virus', '@virus'), ('receptor', '@receptor'), ('dose_vg/well', '@{dose_vg/well}'), ('image_time_h', '@image_time_h'), ('Percent Positive', '@{Percent Positive}')]))
 
     p.xaxis.major_label_orientation = np.pi/2
 
@@ -100,38 +100,38 @@ def bubble_plot(df, x_column, y_column, x_values = None, y_values = None, plot_t
 
     return(p, min_circle, max_circle, min_val, max_val)
         
-def single_image_viewer(path, round_, plate, well): 
-        # Set the file directory to those images
-    if well < 10:
-        well_directory = path + '/round_' + str(round_) + '/plate_' + str(plate) + '/XY0'+ str(well) +'/'
-    else:
-        well_directory = path + '/round_' + str(round_) + '/plate_' + str(plate) + '/XY'+ str(well) +'/'
+# def single_image_viewer(path, round_, plate, well): 
+#         # Set the file directory to those images
+#     if well < 10:
+#         well_directory = path + '/round_' + str(round_) + '/plate_' + str(plate) + '/XY0'+ str(well) +'/'
+#     else:
+#         well_directory = path + '/round_' + str(round_) + '/plate_' + str(plate) + '/XY'+ str(well) +'/'
         
-    # Collect the images at that well
-    file_list = glob.glob(well_directory + '*.tif')
+#     # Collect the images at that well
+#     file_list = glob.glob(well_directory + '*.tif')
     
-    # If there are less than four images, the code jumps to the next folder
-    if len(file_list) == 4:
+#     # If there are less than four images, the code jumps to the next folder
+#     if len(file_list) == 4:
 
-        # Initialize the images
-        im_sig = skimage.img_as_float(skimage.io.imread(file_list[0])[:,:,1])
-        im_bf = skimage.img_as_float(skimage.io.imread(file_list[1])[:,:])
+#         # Initialize the images
+#         im_sig = skimage.img_as_float(skimage.io.imread(file_list[0])[:,:,1])
+#         im_bf = skimage.img_as_float(skimage.io.imread(file_list[1])[:,:])
 
-    elif len(file_list) == 5:
+#     elif len(file_list) == 5:
 
-        im_sig = skimage.img_as_float(skimage.io.imread(file_list[0])[:,:,1])
-        im_bf = skimage.img_as_float(skimage.io.imread(file_list[3])[:,:])
+#         im_sig = skimage.img_as_float(skimage.io.imread(file_list[0])[:,:,1])
+#         im_bf = skimage.img_as_float(skimage.io.imread(file_list[3])[:,:])
 
-    # Perform the brightfield segmentation
-    brightfield_areas, total_area = cellseg.quant.brightfield_segmentation(im_bf)
+#     # Perform the brightfield segmentation
+#     brightfield_areas, total_area = cellseg.quant.brightfield_segmentation(im_bf)
 
-    # Perform the signal segmentation
-    signal_areas, signal_total_area = cellseg.quant.signal_segmentation(im_sig)
+#     # Perform the signal segmentation
+#     signal_areas, signal_total_area = cellseg.quant.signal_segmentation(im_sig)
     
-    bf_plot = cellseg.plot.show_two_ims(im_bf, brightfield_areas, color_mapper=[bokeh.palettes.gray(256), bokeh.palettes.gray(256)])
-    sig_plot = cellseg.plot.show_two_ims(im_sig, signal_areas, color_mapper=[bokeh.palettes.gray(256), bokeh.palettes.gray(256)])
+#     bf_plot = cellseg.plot.show_two_ims(im_bf, brightfield_areas, color_mapper=[bokeh.palettes.gray(256), bokeh.palettes.gray(256)])
+#     sig_plot = cellseg.plot.show_two_ims(im_sig, signal_areas, color_mapper=[bokeh.palettes.gray(256), bokeh.palettes.gray(256)])
     
-    return(bf_plot, sig_plot)
+#     return(bf_plot, sig_plot)
 
 
 def single_experiment_viewer(im_sig,im_bf,channel=0):
